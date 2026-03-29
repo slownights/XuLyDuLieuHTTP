@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Registration</h2>
+<form id="register_form">
+    <div>
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" minlength="3" maxlength="20" required>
+        <span id="username_error" style="color: red;"></span>
+    </div>
+    <br>
+    <div>
+        <label for="full_name">Full name:</label>
+        <input type="text" id="full_name" name="full_name" minlength="3" maxlength="100" required>
+        <span id="full_name_error" style="color: red;"></span>
+    </div>
+    <br>
+    <div>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
+        <span id="email_error" style="color: red;"></span>
+    </div>
+    <br>
+    <div>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" minlength="8" required>
+        <span id="password_error" style="color: red;"></span>
+    </div>
+    <br>
+    <div>
+        <label for="confirm_password">Confirm Password:</label>
+        <input type="password" id="confirm_password" name="confirm_password" minlength="8" required>
+        <span id="confirm_password_error" name="password_error" style="color: red; display: none">Passwords do not
+            match.</span>
+    </div>
+    <br>
+    <button type="submit">Register</button>
+</form>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+    const register_form = document.getElementById("register_form");
+    const password = document.getElementById("password");
+    const confirm_password = document.getElementById("confirm_password");
+    const confirm_password_error = document.getElementById("confirm_password_error");
+
+    register_form.onsubmit = async (event) => {
+        event.preventDefault();
+
+        if (password.value !== confirm_password.value) {
+            confirm_password_error.style.display = "block";
+            return;
+        }
+
+        const user_data = {
+            username: document.getElementById("username").value,
+            full_name: document.getElementById("full_name").value,
+            email: document.getElementById("email").value,
+            password: password.value
+        };
+
+        try {
+            const response = await fetch("/api/users/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(user_data)
+            });
+
+
+            if (response.ok) {
+                alert("Registration successful");
+                register_form.reset();
+                window.location.href = "/login";
+            } else {
+                if (response.status === 429) {
+                    alert("Too many attempts. Try again later.");
+                    return; 
+                }
+
+                const result = await response.json();
+                if (Array.isArray(result.detail)) {
+                    result.detail.forEach(err => {
+                        const field = err.loc[1];
+                        const error_span = document.getElementById(`${field}_error`);
+                        if (error_span) error_span.textContent = err.msg;
+                    });
+                } else {
+                    alert(result.detail || "Registration failed");
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Could not connect to the server");
+        }
+    };
+</script>
+{% endblock scripts %}

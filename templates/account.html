@@ -1,0 +1,293 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Account Settings</h2>
+
+<h3>Account Information</h3>
+<div id="account_info">
+    <img id="profile_pic" src="/media/profile_pics/default.jpg" width="100" height="100">
+    <div>
+        <label for="username">Username:</label>
+        <span id="display_username"></span>
+    </div>
+    <br>
+    <div>
+        <label for="full_name">Full Name:</label>
+        <span id="display_full_name"></span>
+    </div>
+    <br>
+    <div>
+        <label for="email">Email:</label>
+        <span id="display_email"></span>
+    </div>
+    <br>
+    <div>
+        <label for="date_joined">Date Joined:</label>
+        <span id="display_date_joined"></span>
+    </div>
+</div>
+
+<h3>Account Actions</h3>
+<h4>Update Account</h4>
+<form id="update_profile">
+    <div>
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" minlength="3" maxlength="20">
+        <div id="username_error" style="color: red;"></div>
+    </div>
+    <br>
+    <div>
+        <label for="full_name">Full name:</label>
+        <input type="text" id="full_name" name="full_name" minlength="3" maxlength="100">
+        <div id="full_name_error" style="color: red;"></div>
+    </div>
+    <br>
+    <div>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email">
+        <div id="email_error" style="color: red;"></div>
+    </div>
+    <br>
+    <button type="submit">Update</button>
+    <div id="update_error" style="color: red;"></div>
+</form>
+
+<h4>Profile Picture</h4>
+<div id="update_profile_pic">
+    <div>
+        <input id="new_profile_pic" name="new_profile_pic" type="file" accept="image/*">
+        <button id="upload_button" type="button" disabled>Upload</button>
+    </div>
+    <div id="update_profile_pic_error" style="color: red;"></div>
+</div>
+
+<h4>Delete Account</h4>
+<div id="delete_profile">
+    <button type="button">Delete</button>
+    <div id="delete_error" style="color: red;"></div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+    // GET CURRENT USER
+    async function get_current_user() {
+        const token = localStorage.getItem("access_token");
+        
+        if (!token) {
+            return null;
+        }
+
+        user_request = (async () => {
+            try {
+                const response = await fetch("/api/users/account", {
+                    headers: { "Authorization": `Bearer ${token}` },
+                });
+
+                if (response.ok) {
+                    current_user = await response.json();
+                    return current_user;
+                }
+
+                localStorage.removeItem("access_token");
+                
+                return null;
+            } catch (error) {
+                console.error("Error fetching current user:", error);
+                
+                return null;
+            }
+        })();
+
+        return user_request;
+    }
+
+    // LOAD DATA INTO PAGE
+    async function load_user_data() {
+        const user = await get_current_user();
+        if (!user) {
+            window.location.href = "/";
+            return;
+        }
+
+        current_user_id = user.id;
+        
+        document.getElementById("display_username").textContent = user.username;
+        document.getElementById("display_full_name").textContent = user.full_name;
+        document.getElementById("display_email").textContent = user.email;
+        document.getElementById("display_date_joined").textContent = user.date_joined.slice(0, 10);
+        document.getElementById("profile_pic").src = user.image_path;
+    }
+
+
+    // UPDATE PROFILE INFORMATION
+    const update_form = document.getElementById("update_profile");
+    update_form.onsubmit = async (event) => {
+        event.preventDefault();
+
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            window.location.href = "/login";
+            return;
+        }
+
+        const form_data = new FormData(update_form);
+        const user_data = Object.fromEntries(
+            Array.from(form_data.entries()).filter(([_, value]) => value.trim() !== "")
+        );
+
+        if (Object.keys(user_data).length === 0) {
+            alert("Please fill in at least one field to update");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/users/${current_user_id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify(user_data),
+            });
+
+            if (response.status === 401) {
+                window.location.href = "/login";
+                return;
+            }
+
+            if (response.status === 403) {
+                document.getElementById("update_error").textContent = "You are not authorised to update this account.";
+                return;
+            }
+
+            if (response.ok) {
+                const updated_user = await response.json();
+                current_user = null;
+
+                document.getElementById("display_username").textContent = updated_user.username;
+                document.getElementById("display_full_name").innerHTML = updated_user.full_name;
+                document.getElementById("display_email").textContent = updated_user.email;
+                
+                alert("Update successful.");
+            } else {
+                const error = await response.json();
+                document.getElementById("update_error").textContent = error.detail || "Update failed";
+            }
+        } catch (error) {
+            alert("Could not connect to the server");
+        }
+    };
+
+
+    // UPDATE PROFILE PICTURE
+    const upload_pic = document.getElementById("new_profile_pic")
+    const upload_button = document.getElementById("upload_button");
+
+    upload_pic.addEventListener("change", () => {
+        upload_button.disabled = upload_pic.files.length === 0;
+    });
+
+    upload_button.onclick = async () => {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            window.location.href = '/login';
+            return;
+        }
+
+        const file = upload_pic.files[0];
+        
+        if (!file) {
+            return;
+        }
+
+        upload_button.disabled = true;
+
+        const pic_data = new FormData();
+        pic_data.append("file", file);
+        
+        try {
+            const response = await fetch(`/api/users/${current_user_id}/picture`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: pic_data,
+            });
+
+            if (response.status === 401) {
+                window.location.href = "/login";
+                return;
+            }
+
+            if (response.status === 403) {
+                document.getElementById("update_profile_pic_error").textContent =
+                    "You are not authorized to update this profile picture.";
+                return;
+            }
+
+            if (response.ok) {
+                const updated_user = await response.json();
+                upload_pic.value = "";
+
+                document.getElementById("profile_pic").src = updated_user.image_path;
+                
+                alert("Profile picture changed")
+            } else {
+                const error = await response.json();
+                document.getElementById("update_error").textContent = error.detail || "Update failed";
+            }
+        } catch (error) {
+            alert("Could not connect to the server");
+        } finally {
+            upload_button.disabled = true;
+        }
+    };
+
+
+    // DELETE ACCOUNT
+    const delete_button = document.getElementById("delete_profile");
+    delete_button.onclick = async () => {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            window.location.href = "/login";
+            return;
+        }
+
+        if (!confirm("Delete your account?")) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/users/${current_user_id}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                },
+            });
+
+            if (response.status === 401) {
+                window.location.href = "/login";
+                return;
+            }
+
+            if (response.status === 403) {
+                document.getElementById("delete_error").textContent =
+                    "You are not authorized to delete this account.";
+                return;
+            }
+
+            if (response.status === 204) {
+                localStorage.removeItem("access_token");
+                window.location.href = "/";
+            } else {
+                const error = await response.json();
+                document.getElementById("delete_error").textContent = error.detail || "Deletion failed";
+            }
+        } catch (error) {
+            alert("Could not connect to the server");
+        }
+    };
+
+    window.onload = load_user_data;
+</script>
+{% endblock scripts %}

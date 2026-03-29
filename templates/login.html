@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Login</h2>
+<form id="login_form">
+    <div>
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required>
+    </div>
+    <br>
+    <div>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+        <div id="password_error" name="password_error" style="color: rgb(255, 0, 0); display: none"></div>
+    </div>
+    <br>
+    <button type="submit">Log in</button>
+</form>
+<p>
+    <a href="/register">Register here</a>
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const login_form = document.getElementById("login_form");
+    const password_error = document.getElementById("password_error");
+
+    login_form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const form_data = new FormData(login_form);
+        
+        try {
+            const response = await fetch("/api/users/token", {
+                method: "POST",
+                body: form_data,
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem("access_token", result.access_token);
+                
+                alert("Login successful");
+                window.location.href = "/account";
+            } else {
+                password_error.style.display = "block";
+                
+                if (Array.isArray(result.detail)) {
+                    password_error.textContent = result.detail[0].msg;
+                } else {
+                    password_error.textContent = result.detail || "Login failed";
+                }
+            }
+        } catch (error) {
+            alert("Could not connect to the server");
+        }
+    });
+</script>
+{% endblock scripts %}

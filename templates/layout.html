@@ -1,0 +1,17 @@
+<html>
+<head>
+    <title>
+        {% if title %}
+            {{ title }}
+        {% else %}
+            App
+        {% endif %}
+    </title>
+</head>
+<body>
+    {% block content %}
+    {% endblock content %}
+    {% block scripts %}
+    {% endblock scripts %}
+</body>
+</html>

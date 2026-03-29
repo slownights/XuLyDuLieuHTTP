@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% block content %}
+<h3>Account Information</h3>
+<div id="account_info">
+    <img id="profile_pic" src="/media/profile_pics/default.jpg" width="100" height="100">
+    <div>
+        <label for="username">Username:</label>
+        <span id="display_username"></span>
+    </div>
+    <br>
+    <div>
+        <label for="full_name">Full Name:</label>
+        <span id="display_full_name"></span>
+    </div>
+    <br>
+    <div>
+        <label for="date_joined">Date Joined:</label>
+        <span id="display_date_joined"></span>
+    </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+    const path_segments = window.location.pathname.split('/');
+    const user_id = path_segments[path_segments.length - 1];
+
+    // LOAD DATA INTO PAGE
+    async function get_public_user() {
+        user_request = (async () => {
+            try {
+                const response = await fetch(`/api/users/${user_id}`);
+
+                if (response.ok) {
+                    public_user = await response.json();
+                    return public_user;
+                }
+
+                return null;
+            } catch (error) {
+                console.error("Error fetching user:", error);
+                return null;
+            }
+        })();
+
+        return user_request;
+    }
+
+    async function load_user_data() {
+        const user = await get_public_user();
+        
+        if (!user) {
+            window.location.href = "/error";
+            return;
+        }
+
+        document.getElementById("display_username").textContent = user.username;
+        // document.getElementById("display_full_name").textContent = user.full_name;
+        // [STORED XSS]
+        document.getElementById("display_full_name").innerHTML = user.full_name; // INNERHTML FOR XSS
+        document.getElementById("display_date_joined").textContent = user.date_joined.slice(0, 10);
+        document.getElementById("profile_pic").src = user.image_path;
+    }
+
+    window.onload = load_user_data;
+</script>
+{% endblock scripts %}
